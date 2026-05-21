@@ -89,6 +89,21 @@ class WavemeterReader:
         # Pin the switcher to exactly our channel
         self._dll.SetSwitcherChannel(ctypes.c_long(self.channel))
 
+        # Verify the calls actually took effect (WLM software can override them)
+        actual_mode = int(self._dll.GetSwitcherMode(ctypes.c_long(0)))
+        actual_ch   = int(self._dll.GetSwitcherChannel(ctypes.c_long(0)))
+        if actual_mode != 0:
+            print(
+                f"WARNING: SetSwitcherMode(0) did not take effect "
+                f"(GetSwitcherMode returned {actual_mode}). "
+                f"Disable multi-channel switching in the WLM software UI to reach 1.8 kHz."
+            )
+        if actual_ch != self.channel:
+            print(
+                f"WARNING: SetSwitcherChannel({self.channel}) did not take effect "
+                f"(GetSwitcherChannel returned {actual_ch})."
+            )
+
     def _init_simulation(self):
         """Set up state for the synthetic 1.8 kHz signal source."""
         self._sim_t0           = time.perf_counter()
