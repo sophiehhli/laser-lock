@@ -73,15 +73,21 @@ class WavemeterReader:
         self._dll = ctypes.WinDLL(path)
 
         # Set return types explicitly to avoid silent truncation
-        self._dll.GetFrequencyNum.restype  = ctypes.c_double
-        self._dll.GetFrequencyNum.argtypes = [ctypes.c_long, ctypes.c_double]
-        self._dll.GetSwitcherMode.restype  = ctypes.c_long
-        self._dll.GetSwitcherMode.argtypes = [ctypes.c_long]
-        self._dll.SetSwitcherMode.restype  = ctypes.c_long
-        self._dll.SetSwitcherMode.argtypes = [ctypes.c_long]
+        self._dll.GetFrequencyNum.restype    = ctypes.c_double
+        self._dll.GetFrequencyNum.argtypes   = [ctypes.c_long, ctypes.c_double]
+        self._dll.GetSwitcherMode.restype    = ctypes.c_long
+        self._dll.GetSwitcherMode.argtypes   = [ctypes.c_long]
+        self._dll.SetSwitcherMode.restype    = ctypes.c_long
+        self._dll.SetSwitcherMode.argtypes   = [ctypes.c_long]
+        self._dll.GetSwitcherChannel.restype  = ctypes.c_long
+        self._dll.GetSwitcherChannel.argtypes = [ctypes.c_long]
+        self._dll.SetSwitcherChannel.restype  = ctypes.c_long
+        self._dll.SetSwitcherChannel.argtypes = [ctypes.c_long]
 
         # Disable multi-channel switching — required to reach 1.8 kHz on one channel
         self._dll.SetSwitcherMode(ctypes.c_long(0))
+        # Pin the switcher to exactly our channel
+        self._dll.SetSwitcherChannel(ctypes.c_long(self.channel))
 
     def _init_simulation(self):
         """Set up state for the synthetic 1.8 kHz signal source."""
@@ -127,6 +133,22 @@ class WavemeterReader:
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
+
+    @property
+    def switcher_channel(self) -> int:
+        """Active switcher channel reported by the hardware (1-based). Always returns
+        self.channel in simulation mode."""
+        if not self._debug:
+            return int(self._dll.GetSwitcherChannel(ctypes.c_long(0)))
+        return self.channel
+
+    @property
+    def switcher_mode(self) -> int:
+        """0 = single-channel (switching disabled), 1 = multi-channel switching.
+        Always returns 0 in simulation mode."""
+        if not self._debug:
+            return int(self._dll.GetSwitcherMode(ctypes.c_long(0)))
+        return 0
 
     @property
     def debug(self) -> bool:

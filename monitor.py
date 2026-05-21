@@ -78,8 +78,16 @@ def main():
 
     mode_str = "SIMULATION" if acq.debug else "LIVE"
     print(f"WS6-200 monitor  |  channel {args.channel}  |  {mode_str}")
+
+    if not acq.debug:
+        sw_mode = acq._reader.switcher_mode
+        sw_ch   = acq._reader.switcher_channel
+        mode_label = "SINGLE-CHANNEL (OK)" if sw_mode == 0 else "MULTI-CHANNEL (WARNING: rate will be reduced)"
+        print(f"Switcher mode    : {mode_label}")
+        print(f"Switcher channel : {sw_ch}" + ("" if sw_ch == args.channel else f"  ← WARNING: expected {args.channel}"))
+
     if args.setpoint is not None:
-        print(f"Setpoint : {args.setpoint:.6f} THz")
+        print(f"Setpoint         : {args.setpoint:.6f} THz")
     print("Press Ctrl+C to stop.\n")
 
     # --- CSV setup -------------------------------------------------------
