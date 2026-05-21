@@ -6,4 +6,8 @@ dependencies:
   # time.perf_counter_ns() needs >= 3.7.
   - python=3.12
   # All other imports (ctypes, threading, collections, csv, argparse, math, random)
-  # are Python standard library — no third-party packages required.
+  # are Python standard library — no third-party packages required for the monitor.
+  # The plotting notebook additionally requires:
+  - numpy
+  - pandas
+  - matplotlib

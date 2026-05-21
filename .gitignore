@@ -9,6 +9,12 @@ __pycache__/
 # CSV logs produced by monitor.py
 *.csv
 
+# Notebook output images
+*_plot.png
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
 # macOS
 .DS_Store
 
