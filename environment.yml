@@ -1,0 +1,9 @@
+name: laser-lock
+channels:
+  - defaults
+dependencies:
+  # Python >= 3.10 required for structural pattern matching syntax compatibility.
+  # time.perf_counter_ns() needs >= 3.7.
+  - python=3.12
+  # All other imports (ctypes, threading, collections, csv, argparse, math, random)
+  # are Python standard library — no third-party packages required.
