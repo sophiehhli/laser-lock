@@ -6,8 +6,8 @@ __pycache__/
 # Conda
 .conda/
 
-# CSV logs produced by monitor.py
-*.csv
+# CSV logs produced by monitor.py (stored in logs/)
+logs/
 
 # Notebook output images
 *_plot.png

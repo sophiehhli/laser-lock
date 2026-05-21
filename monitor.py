@@ -13,10 +13,10 @@ Usage examples
 # Specify channel and setpoint on Windows:
     python monitor.py --channel 1 --setpoint 384.2300
 
-# Auto-named CSV log (e.g. wlm_2026-05-20_14-32-05.csv):
+# Auto-named CSV log saved to logs/YYYY-MM-DD/wlm_HH-MM-SS.csv:
     python monitor.py --setpoint 384.2300 --log
 
-# Custom CSV log filename:
+# Custom CSV log filename (still saved inside logs/YYYY-MM-DD/):
     python monitor.py --setpoint 384.2300 --log my_run.csv
 
 # Force simulation on Windows for testing:
@@ -24,10 +24,12 @@ Usage examples
 """
 
 import sys
+import os
 import time
 import argparse
 import csv
 from datetime import datetime
+from pathlib import Path
 
 from acquisition import Acquisition
 
@@ -83,12 +85,17 @@ def main():
     # --- CSV setup -------------------------------------------------------
     log_file   = None
     csv_writer = None
+    log_path   = None
     if args.log is not None:
-        log_path = (
-            datetime.now().strftime("wlm_%Y-%m-%d_%H-%M-%S.csv")
+        now      = datetime.now()
+        log_dir  = Path(__file__).parent / "logs" / now.strftime("%Y-%m-%d")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        filename = (
+            now.strftime("wlm_%H-%M-%S.csv")
             if args.log == "_auto"
             else args.log
         )
+        log_path = log_dir / filename
         print(f"Logging to : {log_path}")
         log_file   = open(log_path, "w", newline="", buffering=1)  # line-buffered
         csv_writer = csv.writer(log_file)
