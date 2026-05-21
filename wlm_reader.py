@@ -22,7 +22,7 @@ WLM_ERR_BAD_SIGNAL  = -2.0
 WLM_ERR_LOW_SIGNAL  = -3.0
 WLM_ERR_BIG_SIGNAL  = -4.0
 
-_SIM_FREQ_THz       = 384.2300   # ~780 nm (Rb D2), change to match your laser
+_SIM_FREQ_THz       = 298.0044   # ~1006 nm, change to match your laser
 _SIM_NOISE_AMP_THz  = 1e-6       # 1 MHz RMS noise
 _SIM_DRIFT_AMP_THz  = 5e-7       # slow 0.1 Hz sinusoidal drift
 _SIM_RATE_HZ        = 1800.0     # simulated measurement rate (matches hardware max)
