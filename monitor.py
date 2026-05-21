@@ -108,6 +108,11 @@ def main():
         log_file   = open(log_path, "w", newline="", buffering=1)  # line-buffered
         csv_writer = csv.writer(log_file)
         csv_writer.writerow(["time_ns", "frequency_THz"])
+        # Register callback so every sample is written at full acquisition rate,
+        # not just the subset visible to the display loop.
+        acq.set_log_callback(
+            lambda ts, freq: csv_writer.writerow([ts, f"{freq:.9f}"])
+        )
 
     # --- Display loop ----------------------------------------------------
     try:
@@ -124,11 +129,7 @@ def main():
             ts, freq = sample
             last_ts  = ts
 
-            # Write to CSV every sample
-            if csv_writer is not None:
-                csv_writer.writerow([ts, f"{freq:.9f}"])
-
-            # Build display line
+            # Build display line (CSV is written via callback at full rate)
             rate = acq.sample_rate
             line = (
                 f"\r  Freq: {freq:.6f} THz"

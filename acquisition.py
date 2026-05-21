@@ -45,6 +45,7 @@ class Acquisition:
         self._buffer  = collections.deque(maxlen=buffer_size)
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._log_callback = None  # called with (ts_ns, freq_THz) for every new sample
 
         # Rate tracking — protected by a simple lock (written rarely, read rarely)
         self._rate_lock    = threading.Lock()
@@ -70,6 +71,13 @@ class Acquisition:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
             self._thread = None
+
+    def set_log_callback(self, fn):
+        """Register a callable fn(ts_ns: int, freq_THz: float) that will be
+        invoked in the acquisition thread for every new measurement.
+        Called at the full hardware rate (~1.8 kHz) — keep it fast.
+        Pass None to unregister."""
+        self._log_callback = fn
 
     # ------------------------------------------------------------------
     # Polling loop (runs in daemon thread)
@@ -97,6 +105,10 @@ class Acquisition:
             last_freq = freq
             ts = time.perf_counter_ns()
             self._buffer.append((ts, freq))
+
+            # Fire log callback on every new sample (used for full-rate CSV writing)
+            if self._log_callback is not None:
+                self._log_callback(ts, freq)
 
             # Update rolling sample rate once per second
             rate_count += 1
