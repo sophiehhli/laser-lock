@@ -162,9 +162,9 @@ def parse_args():
              "front panel before running and pass it here.",
     )
     p.add_argument(
-        "--vrange", type=float, default=30.0, metavar="V",
+        "--vrange", type=float, default=5.0, metavar="V",
         help="Allowed piezo excursion ±V around --vcenter. "
-             "Kept well within the ±100 V full range to allow re-centering.",
+             "Default is ±5 V — increase only once you are confident the lock is working.",
     )
     p.add_argument(
         "--log", action="store_true", default=False,
