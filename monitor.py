@@ -13,8 +13,11 @@ Usage examples
 # Specify channel and setpoint on Windows:
     python monitor.py --channel 1 --setpoint 384.2300
 
-# With CSV logging:
-    python monitor.py --setpoint 384.2300 --log run_001.csv
+# Auto-named CSV log (e.g. wlm_2026-05-20_14-32-05.csv):
+    python monitor.py --setpoint 384.2300 --log
+
+# Custom CSV log filename:
+    python monitor.py --setpoint 384.2300 --log my_run.csv
 
 # Force simulation on Windows for testing:
     python monitor.py --debug
@@ -24,6 +27,7 @@ import sys
 import time
 import argparse
 import csv
+from datetime import datetime
 
 from acquisition import Acquisition
 
@@ -42,8 +46,9 @@ def parse_args():
         help="Frequency setpoint in THz; enables deviation display",
     )
     p.add_argument(
-        "--log", type=str, default=None, metavar="FILE",
-        help="Write timestamped CSV log to this file",
+        "--log", nargs="?", const="_auto", default=None, metavar="FILE",
+        help="Write timestamped CSV log. Omit FILE for an auto-generated name"
+             " (e.g. wlm_2026-05-20_14-32-05.csv).",
     )
     p.add_argument(
         "--debug", action="store_true", default=False,
@@ -78,8 +83,14 @@ def main():
     # --- CSV setup -------------------------------------------------------
     log_file   = None
     csv_writer = None
-    if args.log:
-        log_file   = open(args.log, "w", newline="", buffering=1)  # line-buffered
+    if args.log is not None:
+        log_path = (
+            datetime.now().strftime("wlm_%Y-%m-%d_%H-%M-%S.csv")
+            if args.log == "_auto"
+            else args.log
+        )
+        print(f"Logging to : {log_path}")
+        log_file   = open(log_path, "w", newline="", buffering=1)  # line-buffered
         csv_writer = csv.writer(log_file)
         csv_writer.writerow(["time_ns", "frequency_THz"])
 
@@ -123,7 +134,7 @@ def main():
         if log_file is not None:
             log_file.flush()
             log_file.close()
-            print(f"Log saved to: {args.log}")
+            print(f"Log saved to: {log_path}")
         print("Done.")
 
 
