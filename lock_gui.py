@@ -20,6 +20,7 @@ import queue
 import signal
 import subprocess
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from pathlib import Path
@@ -50,9 +51,10 @@ class LockGUI:
 
     def __init__(self, root: tk.Tk):
         self.root      = root
-        self.proc      = None      # subprocess.Popen handle
-        self.log_path  = None      # path to current lock_*.csv
-        self._q        = queue.Queue()
+        self.proc        = None      # subprocess.Popen handle
+        self.log_path   = None      # path to current lock_*.csv
+        self._start_time = None     # time.time() when lock was started
+        self._q          = queue.Queue()
         self._plot_job = None
 
         root.title("Laser Frequency Lock")
@@ -109,6 +111,15 @@ class LockGUI:
         self._rms_var = tk.StringVar(value="")
         ttk.Label(cf, textvariable=self._rms_var,
                   font=("Helvetica", 10)).pack(side="right", padx=8)
+
+        # ─── Time window selector ─────────────────────────────────────────────
+        self._window_var = tk.StringVar(value="All")
+        window_cb = ttk.Combobox(
+            cf, textvariable=self._window_var,
+            values=["1 min", "15 min", "30 min", "1 hr", "3 hr", "6 hr", "All"],
+            state="readonly", width=8)
+        window_cb.pack(side="right", padx=2)
+        ttk.Label(cf, text="Show last:").pack(side="right", padx=(8, 0))
 
         # ─── Matplotlib figure ────────────────────────────────────────────────
         self._fig = Figure(figsize=(11, 5.5), dpi=100)
@@ -174,7 +185,8 @@ class LockGUI:
     def _start(self):
         cmd = self._build_cmd()
         self._log_console("$ " + " ".join(cmd) + "\n")
-        self.log_path = None
+        self.log_path    = None
+        self._start_time = time.time()
         self._draw_placeholder()
         self._canvas.draw_idle()
 
@@ -262,12 +274,17 @@ class LockGUI:
         self._plot_job = self.root.after(self.PLOT_REFRESH_MS, self._schedule_plot_refresh)
 
     def _refresh_plot(self):
-        # Fallback: find most recent lock CSV if subprocess hasn't announced it yet
+        # Fallback: find most recent lock CSV if subprocess hasn't announced it yet.
+        # Only pick files created after this session started to avoid loading old logs.
         if self.log_path is None:
             candidates = sorted(
                 glob.glob(str(SCRIPT_DIR / "logs" / "**" / "lock_*.csv"), recursive=True))
             if candidates:
-                self.log_path = candidates[-1]
+                if self._start_time is not None:
+                    candidates = [c for c in candidates
+                                  if os.path.getmtime(c) >= self._start_time - 10]
+                if candidates:
+                    self.log_path = candidates[-1]
 
         if not self.log_path or not os.path.isfile(self.log_path):
             return
@@ -279,19 +296,44 @@ class LockGUI:
         if len(df) < 2:
             return
 
-        t   = df["time_s"].to_numpy()
-        f   = df["frequency_THz"].to_numpy()
-        e   = df["error_MHz"].to_numpy()
-        V   = df["output_V"].to_numpy()
-        sat = df["saturated"].to_numpy().astype(bool)
+        t_all = df["time_s"].to_numpy()
+        f_all = df["frequency_THz"].to_numpy()
+        e_all = df["error_MHz"].to_numpy()
+        V_all = df["output_V"].to_numpy()
+        s_all = df["saturated"].to_numpy().astype(bool)
+        n_total = len(df)
+
+        # ─── Apply time-window filter ─────────────────────────────────────────
+        window_map = {
+            "1 min":  60,
+            "15 min": 900,
+            "30 min": 1800,
+            "1 hr":   3600,
+            "3 hr":   10800,
+            "6 hr":   21600,
+            "All":    None,
+        }
+        win_s = window_map.get(self._window_var.get())
+        if win_s is not None and len(t_all) > 0:
+            cutoff = t_all[-1] - win_s
+            mask = t_all >= cutoff
+            t, f, e, V, sat = t_all[mask], f_all[mask], e_all[mask], V_all[mask], s_all[mask]
+        else:
+            t, f, e, V, sat = t_all, f_all, e_all, V_all, s_all
+
+        if len(t) < 2:
+            return
+
         f_dev = (f - f.mean()) * 1e6
         rms = float(np.std(e))
 
-        self._rms_var.set(f"RMS error: {rms:.3f} MHz    n={len(df)}")
+        win_label = self._window_var.get()
+        self._rms_var.set(
+            f"RMS error: {rms:.3f} MHz   ({win_label}, n={len(t)}/{n_total})")
 
         # Simple unlock detector: mean of last 5 error samples > 8 MHz
         if len(e) >= 5 and abs(float(e[-5:].mean())) > 8.0:
-            self._set_status("⚠  Lock lost?", "red")
+            self._set_status("Lock lost?", "red")
 
         # ─── Frequency deviation ──────────────────────────────────────────────
         ax = self._ax_freq
