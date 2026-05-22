@@ -233,8 +233,10 @@ def main():
     print("Press Ctrl+C to stop.\n")
 
     # -- CSV log ---------------------------------------------------------
-    log_file   = None
-    csv_writer = None
+    log_file       = None
+    csv_writer     = None
+    raw_log_file   = None
+    raw_csv_writer = None
     if args.log:
         now     = datetime.now()
         log_dir = Path(__file__).parent / "logs" / now.strftime("%Y-%m-%d")
@@ -246,7 +248,12 @@ def main():
             ["time_s", "frequency_THz", "error_MHz",
              "integrator_V", "output_V", "saturated"]
         )
-        print(f"Lock log        : {log_path}\n")
+        print(f"Lock log        : {log_path}")
+        raw_log_path   = log_dir / now.strftime("raw_%H-%M-%S.csv")
+        raw_log_file   = open(raw_log_path, "w", newline="", buffering=1)
+        raw_csv_writer = csv.writer(raw_log_file)
+        raw_csv_writer.writerow(["time_s", "frequency_THz"])
+        print(f"Raw sample log  : {raw_log_path}\n")
 
     # -- Safety check: verify setpoint is close to actual laser frequency --
     SAFETY_WINDOW_MHz = 30.0
@@ -293,6 +300,13 @@ def main():
     last_update    = t_start - dt  # fire on first iteration
     v_out          = args.vcenter
     last_sample_ts = sample[0]    # seed averaging window from safety-check reading
+
+    # -- Raw sample callback (writes every WLM reading to raw_*.csv) -----
+    if raw_csv_writer is not None:
+        _t0 = t_start
+        def _raw_cb(ts_ns: int, freq_THz: float):
+            raw_csv_writer.writerow([f"{time.monotonic() - _t0:.4f}", f"{freq_THz:.9f}"])
+        acq.set_log_callback(_raw_cb)
 
     # -- Inner control loop (shared by dry-run and live) -----------------
     def _run_loop(dlc_or_none):
@@ -360,9 +374,13 @@ def main():
                 _run_loop(dlc)
     finally:
         acq.stop()
+        acq.set_log_callback(None)
         if log_file is not None:
             log_file.close()
             print(f"Lock log saved: {log_file.name}")
+        if raw_log_file is not None:
+            raw_log_file.close()
+            print(f"Raw log saved : {raw_log_file.name}")
         print("Lock stopped.")
 
 
