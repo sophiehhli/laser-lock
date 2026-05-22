@@ -263,7 +263,7 @@ def main():
         sys.exit(1)
 
     _ts_ns, first_freq = sample
-    initial_error_MHz = (first_freq - args.setpoint) * 1e6
+    initial_error_MHz = (args.setpoint - first_freq) * 1e6
     print(f"  Measured frequency : {first_freq:.6f} THz")
     print(f"  Setpoint           : {args.setpoint:.6f} THz")
     print(f"  Initial error      : {initial_error_MHz:+.3f} MHz  (limit ±{SAFETY_WINDOW_MHz:.0f} MHz)\n")
@@ -326,7 +326,7 @@ def main():
                 continue
 
             last_sample_ts, freq = sample
-            error_MHz    = (freq - args.setpoint) * 1e6
+            error_MHz    = (args.setpoint - freq) * 1e6
             v_out, integrator, saturated = pi.update(error_MHz, dt=actual_dt)
 
             # Write to DLC Pro
