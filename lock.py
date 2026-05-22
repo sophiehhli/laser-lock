@@ -248,6 +248,37 @@ def main():
         )
         print(f"Lock log        : {log_path}\n")
 
+    # -- Safety check: verify setpoint is close to actual laser frequency --
+    SAFETY_WINDOW_MHz = 30.0
+    print(f"Waiting for first wavemeter reading to verify setpoint ...")
+    for _ in range(50):          # wait up to ~5 s
+        sample = acq.latest
+        if sample is not None:
+            break
+        time.sleep(0.1)
+
+    if sample is None:
+        print("ERROR: No wavemeter reading after 5 s. Is the WLM software running?")
+        acq.stop()
+        sys.exit(1)
+
+    _ts_ns, first_freq = sample
+    initial_error_MHz = (first_freq - args.setpoint) * 1e6
+    print(f"  Measured frequency : {first_freq:.6f} THz")
+    print(f"  Setpoint           : {args.setpoint:.6f} THz")
+    print(f"  Initial error      : {initial_error_MHz:+.3f} MHz  (limit ±{SAFETY_WINDOW_MHz:.0f} MHz)\n")
+
+    if abs(initial_error_MHz) > SAFETY_WINDOW_MHz:
+        print(
+            f"ERROR: Setpoint is {abs(initial_error_MHz):.1f} MHz away from the measured frequency.\n"
+            f"  This exceeds the ±{SAFETY_WINDOW_MHz:.0f} MHz safety window — possible typo in --setpoint.\n"
+            f"  Measured: {first_freq:.6f} THz  →  try --setpoint {first_freq:.6f}"
+        )
+        acq.stop()
+        sys.exit(1)
+
+    print(f"Safety check passed. Engaging lock.\n")
+
     # -- PI controller ---------------------------------------------------
     pi = PIController(kp=args.kp, ki=args.ki, dt=dt, v_min=v_min, v_max=v_max)
     pi.reset(args.vcenter)
