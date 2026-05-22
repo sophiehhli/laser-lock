@@ -140,6 +140,21 @@ class Acquisition:
         except IndexError:
             return None
 
+    def mean_since(self, since_ns: int) -> Optional[Tuple[int, float]]:
+        """
+        Average all samples collected strictly after `since_ns`.
+
+        Returns (latest_ts_ns, mean_freq_THz), or None if no new samples exist.
+        Use this in slow control loops (e.g. 0.5 Hz PI) so that every WLM
+        reading collected at the full hardware rate (~40 Hz) contributes to
+        each control decision rather than all but the last being discarded.
+        """
+        # Snapshot under GIL — safe for single-consumer deque access
+        samples = [(ts, f) for ts, f in list(self._buffer) if ts > since_ns]
+        if not samples:
+            return None
+        return samples[-1][0], sum(f for _, f in samples) / len(samples)
+
     @property
     def buffer(self) -> collections.deque:
         """Read-only view of the ring buffer (newest item is at the right)."""

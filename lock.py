@@ -289,13 +289,14 @@ def main():
         running[0] = False
     signal.signal(signal.SIGINT, _sigint)
 
-    t_start      = time.monotonic()
-    last_update  = t_start - dt  # fire on first iteration
-    v_out        = args.vcenter
+    t_start        = time.monotonic()
+    last_update    = t_start - dt  # fire on first iteration
+    v_out          = args.vcenter
+    last_sample_ts = sample[0]    # seed averaging window from safety-check reading
 
     # -- Inner control loop (shared by dry-run and live) -----------------
     def _run_loop(dlc_or_none):
-        nonlocal last_update, v_out
+        nonlocal last_update, v_out, last_sample_ts
 
         if dlc_or_none is not None:
             # Pre-load integrator with current piezo voltage so there's
@@ -319,12 +320,12 @@ def main():
             last_update = now_t
             t_rel       = now_t - t_start
 
-            sample = acq.latest
+            sample = acq.mean_since(last_sample_ts)
             if sample is None:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 continue
 
-            _ts_ns, freq = sample
+            last_sample_ts, freq = sample
             error_MHz    = (freq - args.setpoint) * 1e6
             v_out, integrator, saturated = pi.update(error_MHz, dt=actual_dt)
 
