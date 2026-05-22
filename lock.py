@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 lock.py — PI frequency lock: WS6-200 wavemeter → Toptica DLC Pro piezo.
 
@@ -37,6 +38,11 @@ import argparse
 import csv
 from datetime import datetime
 from pathlib import Path
+
+# Force UTF-8 output on Windows (avoids cp1252 UnicodeEncodeError)
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from acquisition import Acquisition
 
@@ -225,9 +231,9 @@ def main():
     dlc_mode = "DRY RUN — no output" if args.dry_run else f"DLC Pro at {args.host}"
     print(f"\nFrequency lock  |  ch {args.channel}  |  WLM: {wlm_mode}  |  {dlc_mode}")
     print(f"Setpoint        : {args.setpoint:.6f} THz")
-    print(f"Gains           : Kp={args.kp} V/MHz   Ki={args.ki} V/(MHz·s)")
+    print(f"Gains           : Kp={args.kp} V/MHz   Ki={args.ki} V/(MHz*s)")
     print(f"Piezo range     : [{v_min:.1f}, {v_max:.1f}] V  (center {args.vcenter:.1f} V)")
-    print(f"Update rate     : {args.rate} Hz  (Δt = {dt:.2f} s)")
+    print(f"Update rate     : {args.rate} Hz  (dt = {dt:.2f} s)")
     if args.dry_run:
         print("  *** DRY RUN — laser will not be touched ***")
     print("Press Ctrl+C to stop.\n")
@@ -273,13 +279,13 @@ def main():
     initial_error_MHz = (args.setpoint - first_freq) * 1e6
     print(f"  Measured frequency : {first_freq:.6f} THz")
     print(f"  Setpoint           : {args.setpoint:.6f} THz")
-    print(f"  Initial error      : {initial_error_MHz:+.3f} MHz  (limit ±{SAFETY_WINDOW_MHz:.0f} MHz)\n")
+    print(f"  Initial error      : {initial_error_MHz:+.3f} MHz  (limit +/-{SAFETY_WINDOW_MHz:.0f} MHz)\n")
 
     if abs(initial_error_MHz) > SAFETY_WINDOW_MHz:
         print(
             f"ERROR: Setpoint is {abs(initial_error_MHz):.1f} MHz away from the measured frequency.\n"
-            f"  This exceeds the ±{SAFETY_WINDOW_MHz:.0f} MHz safety window — possible typo in --setpoint.\n"
-            f"  Measured: {first_freq:.6f} THz  →  try --setpoint {first_freq:.6f}"
+            f"  This exceeds the +/-{SAFETY_WINDOW_MHz:.0f} MHz safety window - possible typo in --setpoint.\n"
+            f"  Measured: {first_freq:.6f} THz  ->  try --setpoint {first_freq:.6f}"
         )
         acq.stop()
         sys.exit(1)
