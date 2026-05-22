@@ -53,6 +53,12 @@ def parse_args():
              " (e.g. wlm_2026-05-20_14-32-05.csv).",
     )
     p.add_argument(
+        "--exposure", type=int, default=None, metavar="MS",
+        help="Set a fixed manual exposure time in ms (e.g. 1). "
+             "Shorter = faster rate, but needs sufficient signal power. "
+             "Omit to leave the wavemeter in auto-exposure mode.",
+    )
+    p.add_argument(
         "--debug", action="store_true", default=False,
         help="Force simulation mode (auto on non-Windows)",
     )
@@ -73,6 +79,7 @@ def main():
         channel=args.channel,
         dll_path=args.dll,
         debug=debug_flag,
+        exposure_ms=args.exposure,
     )
     acq.start()
 

@@ -47,8 +47,10 @@ class WavemeterReader:
 
     DEFAULT_DLL_PATH = r"C:\Windows\System32\wlmData.dll"
 
-    def __init__(self, channel: int = 1, dll_path: str = None, debug: bool = None):
+    def __init__(self, channel: int = 1, dll_path: str = None, debug: bool = None,
+                 exposure_ms: int = None):
         self.channel = channel
+        self._exposure_ms = exposure_ms  # None = leave auto-exposure as-is
 
         # Determine mode
         if debug is None:
@@ -79,10 +81,16 @@ class WavemeterReader:
         self._dll.GetSwitcherMode.argtypes   = [ctypes.c_long]
         self._dll.SetSwitcherMode.restype    = ctypes.c_long
         self._dll.SetSwitcherMode.argtypes   = [ctypes.c_long]
-        self._dll.GetSwitcherChannel.restype  = ctypes.c_long
-        self._dll.GetSwitcherChannel.argtypes = [ctypes.c_long]
         self._dll.SetSwitcherChannel.restype  = ctypes.c_long
         self._dll.SetSwitcherChannel.argtypes = [ctypes.c_long]
+        self._dll.GetExposureNum.restype  = ctypes.c_long
+        self._dll.GetExposureNum.argtypes = [ctypes.c_long, ctypes.c_long]
+        self._dll.SetExposureNum.restype  = ctypes.c_long
+        self._dll.SetExposureNum.argtypes = [ctypes.c_long, ctypes.c_long, ctypes.c_long]
+        self._dll.GetExposureMode.restype  = ctypes.c_long
+        self._dll.GetExposureMode.argtypes = [ctypes.c_long]
+        self._dll.SetExposureMode.restype  = ctypes.c_long
+        self._dll.SetExposureMode.argtypes = [ctypes.c_long]
 
         # Disable multi-channel switching — required to reach 1.8 kHz on one channel
         self._dll.SetSwitcherMode(ctypes.c_long(0))
@@ -103,6 +111,27 @@ class WavemeterReader:
                 f"WARNING: SetSwitcherChannel({self.channel}) did not take effect "
                 f"(GetSwitcherChannel returned {actual_ch})."
             )
+
+        # Exposure setup
+        current_exp = int(self._dll.GetExposureNum(ctypes.c_long(self.channel), ctypes.c_long(1)))
+        if self._exposure_ms is not None:
+            # Switch to manual exposure and set requested time
+            self._dll.SetExposureMode(ctypes.c_long(0))  # 0 = manual
+            self._dll.SetExposureNum(
+                ctypes.c_long(self.channel), ctypes.c_long(1),
+                ctypes.c_long(self._exposure_ms)
+            )
+            actual_exp = int(self._dll.GetExposureNum(ctypes.c_long(self.channel), ctypes.c_long(1)))
+            print(f"Exposure         : {actual_exp} ms (manual, was {current_exp} ms)")
+        else:
+            mode = int(self._dll.GetExposureMode(ctypes.c_long(0)))
+            mode_str = "auto" if mode else "manual"
+            print(f"Exposure         : {current_exp} ms ({mode_str})")
+            if current_exp > 50:
+                print(
+                    f"NOTE: Exposure is {current_exp} ms → max rate ~{1000/current_exp:.0f} Hz. "
+                    f"Use --exposure <ms> to set a shorter time (needs sufficient signal power)."
+                )
 
     def _init_simulation(self):
         """Set up state for the synthetic 1.8 kHz signal source."""

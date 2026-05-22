@@ -40,8 +40,10 @@ class Acquisition:
         buffer_size: int = DEFAULT_BUFFER_SIZE,
         dll_path: str = None,
         debug: bool = None,
+        exposure_ms: int = None,
     ):
-        self._reader  = WavemeterReader(channel=channel, dll_path=dll_path, debug=debug)
+        self._reader  = WavemeterReader(channel=channel, dll_path=dll_path, debug=debug,
+                                        exposure_ms=exposure_ms)
         self._buffer  = collections.deque(maxlen=buffer_size)
         self._running = False
         self._thread: Optional[threading.Thread] = None

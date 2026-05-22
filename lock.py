@@ -20,11 +20,11 @@ Usage examples
 # Dry run — verifies error signal, prints corrections, does NOT touch laser:
     python lock.py --setpoint 298.0044 --dry-run
 
-# Live lock on Windows (find port in Device Manager → Ports):
-    python lock.py --port COM5 --setpoint 298.0044
+# Live lock via ethernet (DLC Pro IP visible at bottom of DLC Pro software):
+    python lock.py --host 192.168.100.2 --setpoint 298.0044
 
 # Custom gains and log:
-    python lock.py --port COM5 --setpoint 298.0044 --kp 0.0005 --ki 0.002 --log
+    python lock.py --host 192.168.100.2 --setpoint 298.0044 --kp 0.0005 --ki 0.002 --log
 
 # Simulation + dry-run (for testing the full pipeline on macOS):
     python lock.py --setpoint 298.0044 --debug --dry-run
@@ -45,7 +45,7 @@ from acquisition import Acquisition
 # DLC pro firmware 2.7.2 → module toptica.lasersdk.dlcpro.v2_7_2
 # ---------------------------------------------------------------------------
 try:
-    from toptica.lasersdk.dlcpro.v2_7_2 import DLCpro, SerialConnection
+    from toptica.lasersdk.dlcpro.v2_7_2 import DLCpro, NetworkConnection
     _SDK_AVAILABLE = True
 except ImportError:
     _SDK_AVAILABLE = False
@@ -131,8 +131,8 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--port", type=str, default=None, metavar="PORT",
-        help="DLC Pro serial port (e.g. COM5 on Windows). "
+        "--host", type=str, default=None, metavar="HOST",
+        help="DLC Pro hostname or IP address (e.g. 192.168.100.2). "
              "Required unless --dry-run is used.",
     )
     p.add_argument(
@@ -197,8 +197,8 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if not args.dry_run and args.port is None:
-        print("ERROR: --port is required unless --dry-run is used.")
+    if not args.dry_run and args.host is None:
+        print("ERROR: --host is required unless --dry-run is used.")
         sys.exit(1)
 
     if not args.dry_run and not _SDK_AVAILABLE:
@@ -222,7 +222,7 @@ def main():
     acq.start()
 
     wlm_mode = "SIMULATION" if acq.debug else "LIVE"
-    dlc_mode = "DRY RUN — no output" if args.dry_run else f"DLC Pro on {args.port}"
+    dlc_mode = "DRY RUN — no output" if args.dry_run else f"DLC Pro at {args.host}"
     print(f"\nFrequency lock  |  ch {args.channel}  |  WLM: {wlm_mode}  |  {dlc_mode}")
     print(f"Setpoint        : {args.setpoint:.6f} THz")
     print(f"Gains           : Kp={args.kp} V/MHz   Ki={args.ki} V/(MHz·s)")
@@ -324,7 +324,7 @@ def main():
         if args.dry_run:
             _run_loop(None)
         else:
-            with DLCpro(SerialConnection(args.port)) as dlc:
+            with DLCpro(NetworkConnection(args.host)) as dlc:
                 _run_loop(dlc)
     finally:
         acq.stop()
