@@ -18,6 +18,9 @@ logs/
 # macOS
 .DS_Store
 
+# GUI saved settings (machine-local, not shared)
+gui_settings.json
+
 # Editor
 .vscode/
 .idea/

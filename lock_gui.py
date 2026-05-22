@@ -13,6 +13,7 @@ Usage:
     python lock_gui.py
 """
 
+import json
 import os
 import sys
 import glob
@@ -32,7 +33,8 @@ matplotlib.use("TkAgg")
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR    = Path(__file__).parent
+SETTINGS_FILE = SCRIPT_DIR / "gui_settings.json"
 
 
 class LockGUI:
@@ -45,6 +47,7 @@ class LockGUI:
         kp       = "0.001",
         ki       = "0.002",
         rate     = "1.0",
+        channel  = "1",
     )
     PLOT_REFRESH_MS   = 2000   # ms between plot redraws (does NOT affect lock)
     CONSOLE_POLL_MS   = 100    # ms between stdout polls
@@ -61,6 +64,7 @@ class LockGUI:
         root.title("Laser Frequency Lock")
         root.resizable(True, True)
         self._build_ui()
+        self._load_settings()
         self._schedule_console_poll()
 
     # ── UI ───────────────────────────────────────────────────────────────────
@@ -78,6 +82,7 @@ class LockGUI:
             ("Kp  V/MHz",      "kp"),
             ("Ki  V/(MHz·s)",  "ki"),
             ("Rate  Hz",       "rate"),
+            ("WLM channel",    "channel"),
         ]
         self._vars = {}
         for col, (lbl, key) in enumerate(param_defs):
@@ -176,6 +181,7 @@ class LockGUI:
             "--kp",       self._vars["kp"].get(),
             "--ki",       self._vars["ki"].get(),
             "--rate",     self._vars["rate"].get(),
+            "--channel",  self._vars["channel"].get(),
         ]
         if self._dry_run.get():
             cmd.append("--dry-run")
@@ -183,8 +189,37 @@ class LockGUI:
             cmd.append("--log")
         return cmd
 
+    def _load_settings(self):
+        """Populate fields from saved JSON, falling back to DEFAULTS."""
+        if SETTINGS_FILE.exists():
+            try:
+                saved = json.loads(SETTINGS_FILE.read_text())
+                for key, var in self._vars.items():
+                    if key in saved:
+                        var.set(saved[key])
+                if "dry_run" in saved:
+                    self._dry_run.set(saved["dry_run"])
+                if "do_log" in saved:
+                    self._do_log.set(saved["do_log"])
+                if "window" in saved:
+                    self._window_var.set(saved["window"])
+            except Exception:
+                pass  # corrupt file — just use defaults
+
+    def _save_settings(self):
+        """Persist current field values to JSON."""
+        data = {key: var.get() for key, var in self._vars.items()}
+        data["dry_run"] = self._dry_run.get()
+        data["do_log"]  = self._do_log.get()
+        data["window"]  = self._window_var.get()
+        try:
+            SETTINGS_FILE.write_text(json.dumps(data, indent=2))
+        except Exception:
+            pass
+
     def _start(self):
         self._stop_gen  += 1          # invalidate any pending _on_stopped callback
+        self._save_settings()
         cmd = self._build_cmd()
         self._log_console("$ " + " ".join(cmd) + "\n")
         self.log_path    = None
@@ -396,6 +431,7 @@ def main():
     app  = LockGUI(root)
 
     def _on_close():
+        app._save_settings()
         if app.proc and app.proc.poll() is None:
             app._log_console("\n[GUI closed — lock subprocess still running. "
                              "Stop it manually with Ctrl+C in its terminal.]\n")
