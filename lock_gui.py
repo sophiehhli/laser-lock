@@ -52,8 +52,9 @@ class LockGUI:
     def __init__(self, root: tk.Tk):
         self.root      = root
         self.proc        = None      # subprocess.Popen handle
-        self.log_path   = None      # path to current lock_*.csv
-        self._start_time = None     # time.time() when lock was started
+        self.log_path    = None      # path to current lock_*.csv
+        self._start_time = None      # time.time() when lock was started
+        self._stop_gen   = 0         # incremented on start/stop to invalidate stale callbacks
         self._q          = queue.Queue()
         self._plot_job = None
 
@@ -183,10 +184,15 @@ class LockGUI:
         return cmd
 
     def _start(self):
+        self._stop_gen  += 1          # invalidate any pending _on_stopped callback
         cmd = self._build_cmd()
         self._log_console("$ " + " ".join(cmd) + "\n")
         self.log_path    = None
         self._start_time = time.time()
+        # Cancel any existing plot loop before starting a new one
+        if self._plot_job:
+            self.root.after_cancel(self._plot_job)
+            self._plot_job = None
         self._draw_placeholder()
         self._canvas.draw_idle()
 
@@ -213,10 +219,14 @@ class LockGUI:
                 self.proc.send_signal(signal.SIGINT)
             except Exception:
                 pass
-        self._set_status("Stopping …", "darkorange")
-        self.root.after(1500, self._on_stopped)
+        self._stop_gen += 1
+        my_gen = self._stop_gen
+        self._set_status("Stopping ...", "darkorange")
+        self.root.after(1500, lambda: self._on_stopped(my_gen))
 
-    def _on_stopped(self):
+    def _on_stopped(self, gen: int):
+        if gen != self._stop_gen:
+            return   # a new run was started before this callback fired; ignore it
         if self.proc:
             try:
                 self.proc.wait(timeout=3)
